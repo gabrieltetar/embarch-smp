@@ -1,0 +1,14 @@
+embarch-smp
+Copyright 2026 Gabriel Tetar
+
+This product is a Rust port of portions of two Apache-2.0 licensed works:
+
+  smp — Simple Management Protocol message definitions and serial framing
+  https://github.com/JPHutchins/smp
+  by J.P. Hutchins
+
+  smpclient — Simple Management Protocol client
+  https://github.com/intercreate/smpclient
+  by J.P. Hutchins (Intercreate)
+
+Each ported source file names the original module it was ported from.

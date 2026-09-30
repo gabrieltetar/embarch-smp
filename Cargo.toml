@@ -1,0 +1,8 @@
+[package]
+name = "embarch-smp"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "A Rust port of smpclient: SMP over the serial transport, for uploading a signed image to an MCUboot serial-recovery bootloader. Never opens a port — every call takes a Read + Write. embarch-doc/embarch-smp/spec.md is the source of truth."
+
+[dependencies]
