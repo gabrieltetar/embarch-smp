@@ -5,4 +5,18 @@ edition = "2021"
 license = "Apache-2.0"
 description = "A Rust port of smpclient: SMP over the serial transport, for uploading a signed image to an MCUboot serial-recovery bootloader. Never opens a port — every call takes a Read + Write. embarch-doc/embarch-smp/spec.md is the source of truth."
 
+[features]
+# The simulated MCUboot serial-recovery bootloader, for tests here and in
+# callers (embarch-core). Never on in a shipping build.
+sim = []
+
 [dependencies]
+base64 = "0.23.1"
+ciborium = "0.2.2"
+sha2 = "0.11.0"
+
+[dev-dependencies]
+hex = "0.4.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
