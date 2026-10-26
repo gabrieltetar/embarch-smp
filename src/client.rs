@@ -23,8 +23,10 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_millis(2500);
 /// server erasing the whole slot before it answers.
 pub const DEFAULT_FIRST_CHUNK_TIMEOUT: Duration = Duration::from_secs(40);
 
-/// Consecutive upload replies that do not advance the offset before the
-/// upload is abandoned. The reference loops forever instead (decision 9).
+/// Consecutive upload replies that do not advance the offset (or, counting
+/// from the highest offset reached, do not pass it; or that ask to restart at
+/// 0) before the upload is abandoned. The reference loops forever instead
+/// (decision 9).
 pub const DEFAULT_MAX_STALLS: u32 = 5;
 
 /// How long to wait before reading again when the stream returned at once with
@@ -196,6 +198,12 @@ impl<T: Read + Write> Client<T> {
         progress(reply.off);
 
         let mut stalls = 0;
+        // Forward progress: the highest offset reached since the last restart,
+        // the replies since it last rose, and the restarts the server asked for.
+        let mut best = reply.off;
+        let mut since_best = 0;
+        let mut restarts = 0;
+        let mut seen = vec![reply.off];
         while reply.off != total {
             if reply.off > total {
                 return Err(Error::Upload(format!("server reports offset {} past the {total}-byte image", reply.off)));
@@ -216,6 +224,27 @@ impl<T: Read + Write> Client<T> {
                 }
             } else {
                 stalls = 0;
+            }
+            seen.push(next.off);
+            if next.off == 0 {
+                // The one legitimate way back: the server asks to start over.
+                restarts += 1;
+                best = 0;
+                since_best = 0;
+                if restarts > options.max_stalls {
+                    return Err(no_progress(&format!("server asked to restart {restarts} times"), &seen));
+                }
+            } else if next.off > best {
+                best = next.off;
+                since_best = 0;
+            } else {
+                since_best += 1;
+                if since_best >= options.max_stalls {
+                    return Err(no_progress(
+                        &format!("highest offset {best} not passed in {since_best} consecutive replies"),
+                        &seen,
+                    ));
+                }
             }
             reply = next;
             progress(reply.off);
@@ -292,6 +321,13 @@ impl<T: Read + Write> Client<T> {
             }
         }
     }
+}
+
+/// The error for an upload whose offset moves without getting anywhere,
+/// naming the last offsets the server answered with.
+fn no_progress(why: &str, seen: &[u64]) -> Error {
+    let tail = &seen[seen.len().saturating_sub(10)..];
+    Error::Upload(format!("no forward progress: {why}; last offsets {tail:?}"))
 }
 
 /// CBOR packs an integer's size as small as it can. Port of the reference's

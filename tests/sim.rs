@@ -233,3 +233,30 @@ fn a_server_asking_for_offset_zero_again_gets_len_but_not_sha() {
     });
     Client::new(port).upload(&pattern(20), &quick(), |_| {}).unwrap();
 }
+
+#[test]
+fn an_offset_that_alternates_abandons_the_upload_naming_the_offsets() {
+    let mut n = 0;
+    let mut requests = 0;
+    let port = Scripted::new(move |h: &Header, _: &Value| {
+        requests += 1;
+        // The bound: first chunk plus `max_stalls` replies that do not pass 16.
+        assert!(requests <= 1 + 1 + quick().max_stalls as usize, "upload kept going");
+        n += 1;
+        vec![(h.sequence, off(if n % 2 == 1 { 8 } else { 16 }))]
+    });
+    let err = Client::new(port).upload(&pattern(1000), &quick(), |_| {}).unwrap_err();
+    assert!(matches!(&err, Error::Upload(m) if m.contains("no forward progress") && m.contains("[8, 16, 8")), "{err}");
+}
+
+#[test]
+fn a_server_that_keeps_returning_to_zero_abandons_the_upload() {
+    let mut n = 0;
+    let port = Scripted::new(move |h: &Header, _: &Value| {
+        n += 1;
+        assert!(n < 50, "upload kept going");
+        vec![(h.sequence, off(if n % 2 == 1 { 0 } else { 8 }))]
+    });
+    let err = Client::new(port).upload(&pattern(1000), &quick(), |_| {}).unwrap_err();
+    assert!(matches!(&err, Error::Upload(m) if m.contains("restart")), "{err}");
+}
